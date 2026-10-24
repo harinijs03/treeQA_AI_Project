@@ -1,44 +1,30 @@
-from concurrent.futures import as_completed, ThreadPoolExecutor
-
-import numpy as np
+import re
 import wikipediaapi
-import chromadb
-from chromadb.api.types import Images
-from chromadb import Documents
-from typing import Union, TypeVar
-
-from sklearn.metrics.pairwise import cosine_similarity
-import os
-import nltk
-from transformers import GPT2TokenizerFast
-
-from embedding.embeddingModel import getEmbeddings
-from treeQA_Config import PersistentClient_Path, chroma_collection_name
-from treeQA.tree_class.embeddingModels import treeQAEmbeddings
-
-# 初始化 tokenizer 和下载 nltk 句子分词器
-tokenizer = GPT2TokenizerFast.from_pretrained("gpt2")
+from treeQA_Config import TREEQA_WIKIPEDIA_CHUNK_WORDS
 
 
-# 定义类型
-Embeddable = Union[Documents, Images]
-D = TypeVar("D", bound=Embeddable, contravariant=True)
+wiki_wiki = wikipediaapi.Wikipedia(user_agent="TreeQA/1.0 (research demo)", language="en")
+_collection = None
 
-# 初始化 Wikipedia API
-wiki_wiki = wikipediaapi.Wikipedia('MyProject', 'en')
 
-# 清除代理环境变量
-os.environ.pop('HTTP_PROXY', None)
-os.environ.pop('HTTPS_PROXY', None)
-# 初始化 Chroma 客户端
-client = chromadb.PersistentClient(path=PersistentClient_Path)
-embedding_function = treeQAEmbeddings()
-collection = client.get_or_create_collection(name=chroma_collection_name, embedding_function=embedding_function,metadata={"hnsw:space": "cosine"})
+def _get_collection():
+    global _collection
+    if _collection is None:
+        import chromadb
+
+        from treeQA_Config import PersistentClient_Path, chroma_collection_name
+
+        client = chromadb.PersistentClient(path=PersistentClient_Path)
+        _collection = client.get_or_create_collection(
+            name=chroma_collection_name,
+            metadata={"hnsw:space": "cosine"},
+        )
+    return _collection
 
 def get_article_sections(title):
-    """
-    获取维基百科文章内容并按章节提取。
-    """
+
+
+
 
     page = wiki_wiki.page(title)
     if not page.exists():
@@ -75,23 +61,21 @@ def get_article_sections(title):
     return sections
 
 
-def split_text_by_tokens(section, max_tokens=100):
+def split_text_by_tokens(section, max_tokens=TREEQA_WIKIPEDIA_CHUNK_WORDS):
     """
-    按 token 数量分割章节内容，确保每个块为完整句子，且不超过 max_tokens。
+    Split a section into sentence-preserving word-limited chunks.
     """
-    title = section['title']
     content = section['content']
-    sentences = nltk.sent_tokenize(content)
+    sentences = re.split(r"(?<=[.!?])\s+", content.strip())
 
     chunks = []
     current_chunk = []
     current_length = 0
 
     for sentence in sentences:
-        sentence_tokens = tokenizer.encode(sentence)
-        #print(f"########sentences:#########\n{sentence}")
-        #print(f"########sentence_tokens:#########\n{sentence_tokens}")
-        sentence_length = len(sentence_tokens)
+        if not sentence:
+            continue
+        sentence_length = len(sentence.split())
 
         if current_length + sentence_length > max_tokens:
             if current_chunk:
@@ -112,11 +96,11 @@ def split_text_by_tokens(section, max_tokens=100):
 
 
 def is_exists(article_title):
-    """
-    判断文章是否已经存在于数据库中。
-    """
+
+
+
     try:
-        result = collection.get(ids=[f"{article_title}_0_0"])
+        result = _get_collection().get(ids=[f"{article_title}_0_0"])
         return bool(result['ids'])
     except Exception as e:
         print(f"Error checking existence: {e}")
@@ -124,12 +108,15 @@ def is_exists(article_title):
 
 
 def embed_and_store(sections, article_title):
+    from embedding.embeddingModel import getEmbeddings
+
+    collection = _get_collection()
     all_documents = []
     all_metadatas = []
     all_ids = []
 
     for idx, section in enumerate(sections):
-        split_texts = split_text_by_tokens(section, max_tokens=100)
+        split_texts = split_text_by_tokens(section)
         for part_idx, part_text in enumerate(split_texts):
             doc_id = f"{article_title}_{idx}_{part_idx}"
             all_documents.append(part_text)
@@ -143,75 +130,67 @@ def embed_and_store(sections, article_title):
     batch_size = 100
     total_batches = (len(all_documents) + batch_size - 1) // batch_size
 
-    batches = []
-    for batch_idx in range(total_batches):
-        start = batch_idx * batch_size
-        end = start + batch_size
-        batch_documents = all_documents[start:end]
-        batches.append(batch_documents)
-
-
-    with ThreadPoolExecutor() as executor:
-        futures = {executor.submit(getEmbeddings, batch): batch for batch in batches}
-        embeddings_list = []
-        for future in as_completed(futures):
-            batch = futures[future]
-            try:
-                embeddings = future.result()
-                embeddings_list.extend(embeddings)
-            except Exception as e:
-                print(f"Error generating embeddings for batch: {e}")
-
     # Now, insert all data into the collection in batches
-    embeddings_index = 0
     for batch_idx in range(total_batches):
         start = batch_idx * batch_size
-        end = start + batch_size
+        end = min(start + batch_size, len(all_documents))
         batch_documents = all_documents[start:end]
         batch_metadatas = all_metadatas[start:end]
         batch_ids = all_ids[start:end]
-        batch_embeddings = embeddings_list[embeddings_index:embeddings_index + len(batch_documents)]
-        embeddings_index += len(batch_documents)
-
-        try:
-            collection.add(
-                documents=batch_documents,
-                embeddings=batch_embeddings,
-                metadatas=batch_metadatas,
-                ids=batch_ids
+        batch_embeddings = getEmbeddings(batch_documents)
+        if batch_embeddings is None or len(batch_embeddings) != len(batch_documents):
+            raise RuntimeError(
+                f"Expected {len(batch_documents)} embeddings for Wikipedia article "
+                f"{article_title!r}; received {0 if batch_embeddings is None else len(batch_embeddings)}."
             )
-            print(f"{article_title} batch {batch_idx + 1} of {total_batches} successfully embedded and stored.")
-        except Exception as e:
-            print(f"Error inserting batch {batch_idx + 1}: {e}")
+        collection.add(
+            documents=batch_documents,
+            embeddings=batch_embeddings,
+            metadatas=batch_metadatas,
+            ids=batch_ids
+        )
+        print(f"{article_title} batch {batch_idx + 1} of {total_batches} successfully embedded and stored.")
 
 
 def query_article(query, top_k,article_name):
-    """
-    根据查询语句从数据库中检索相关内容。
-    """
+
+
+
+    from embedding.embeddingModel import getEmbeddings
+
     embeddings = getEmbeddings([query])
+    collection = _get_collection()
+    article_filter = {"article_title": {"$eq": article_name}}
+    article_chunk_ids = collection.get(where=article_filter, include=[])['ids']
+    article_chunk_count = len(article_chunk_ids)
+    if not article_chunk_count:
+        return []
     results = collection.query(
         query_embeddings=embeddings,
-        n_results=top_k,
+        n_results=min(top_k, article_chunk_count),
         include=['metadatas', 'distances' ],
-        where={"article_title": {"$eq": article_name}}
+        where=article_filter
     )
     query_results = []
     if 'distances' in results:
-        for id, metadata, distance in zip(results['ids'][0], results['metadatas'][0], results['distances'][0]):
-            if distance > 0.3:  # 过滤距离大于 0.3 的结果
-                query_results.append({
-                    "id": id,
-                    "title": metadata['title'],
-                    "content": metadata['content']
-                })
+        for result_id, metadata, distance in zip(
+            results['ids'][0],
+            results['metadatas'][0],
+            results['distances'][0],
+        ):
+            query_results.append({
+                "id": result_id,
+                "title": metadata['title'],
+                "content": metadata['content'],
+                "similarity": 1.0 - float(distance),
+            })
     return query_results
 
 
 def getWikipediaResultByNV(article_name, query , top_k=3):
-    """
-    获取维基百科文章结果，如果文章不存在，则进行嵌入操作。
-    """
+
+
+
     if article_name:
         print(article_name)
         if is_exists(article_name):
@@ -239,10 +218,9 @@ def embed_and_query_direct(article_name, query, top_k):
 
     # 2. Split into chunks
     all_chunks_data = []
-    all_chunk_texts = []
     #print(f"Splitting article '{article_name}' into chunks...")
     for idx, section in enumerate(sections):
-        split_texts = split_text_by_tokens(section, max_tokens=100) # Use existing function
+        split_texts = split_text_by_tokens(section)
         for part_idx, part_text in enumerate(split_texts):
             all_chunks_data.append({
                 "article_title": article_name,
@@ -251,35 +229,37 @@ def embed_and_query_direct(article_name, query, top_k):
                 # Optional: Add an ID if needed later, though not strictly necessary for direct query
                 "id": f"{article_name}_{idx}_{part_idx}"
             })
-            all_chunk_texts.append(part_text)
     #print(f"Generated {len(all_chunk_texts)} chunks.")
 
-    if not all_chunk_texts:
+    if not all_chunks_data:
         print("No text chunks generated.")
         return []
 
-    # 3. Embed chunks and query
-    chunk_embeddings = getEmbeddings(all_chunk_texts) # Adapt if using class methods
-    query_embedding = getEmbeddings([query])[0]       # Adapt if using class methods
+    query_terms = {
+        term
+        for term in re.findall(r"[a-z0-9]+", query.lower())
+        if len(term) > 2 and term not in {
+            "about", "after", "among", "from", "have", "that", "their",
+            "there", "these", "this", "what", "when", "where", "which",
+            "while", "with", "would",
+        }
+    }
+    if not query_terms:
+        return []
 
-    if not chunk_embeddings or query_embedding is None:
-         print("Failed to generate embeddings.")
-         return []
+    def score(text):
+        terms = set(re.findall(r"[a-z0-9]+", text.lower()))
+        overlap = len(query_terms & terms)
+        return overlap / ((len(query_terms) * len(terms)) ** 0.5) if overlap else 0.0
 
-    # Ensure embeddings are in the correct format for cosine_similarity (e.g., 2D numpy arrays)
-    chunk_embeddings_np = np.array(chunk_embeddings)
-    query_embedding_np = np.array(query_embedding).reshape(1, -1)
-
-    # 4. Calculate cosine similarities
-    #print("Calculating similarities...")
-    similarities = cosine_similarity(query_embedding_np, chunk_embeddings_np).flatten()
-
-    # 5. Get top-k results
-    # Get indices sorted by similarity (highest first)
-    sorted_indices = np.argsort(similarities)[::-1]
-
-    # Select top k indices
-    top_k_indices = sorted_indices[:top_k]
+    ranked_chunks = sorted(
+        (
+            (score(chunk["content"]), index)
+            for index, chunk in enumerate(all_chunks_data)
+        ),
+        reverse=True,
+    )
+    top_k_indices = [index for rank, index in ranked_chunks[:top_k] if rank > 0]
 
     # 6. Format results
     #print(f"Found {len(top_k_indices)} relevant chunks.")
@@ -289,7 +269,7 @@ def embed_and_query_direct(article_name, query, top_k):
             "id": all_chunks_data[i]["id"],
             "title": all_chunks_data[i]["title"],
             "content": all_chunks_data[i]["content"],
-            "similarity": float(similarities[i]) # Add similarity score
+            "similarity": score(all_chunks_data[i]["content"])
         })
 
     return results
@@ -297,7 +277,7 @@ def embed_and_query_direct(article_name, query, top_k):
 # New main function for direct query
 def getWikipediaResultDirect(article_name, query, top_k=3):
     """
-    Fetches, embeds, and queries a Wikipedia article directly without storing in DB.
+    Fetches and lexically ranks a Wikipedia article without external embeddings.
     """
     if not article_name:
         print("Article name is required.")

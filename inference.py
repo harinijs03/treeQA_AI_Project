@@ -10,6 +10,9 @@ from tqdm import tqdm
 from treeQA.tree_class.logicTree import LogicTree
 
 
+PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+
+
 def answerQuestion(query):
     """Processes a single question, tracking time and tokens for stages."""
     global _global_token_counter
@@ -82,14 +85,14 @@ def answerQuestion(query):
 # --- Dataset config and paths (Keep as before) ---
 SUPPORTED_DATASETS = ["2wiki", "webqsp", "advhotpotqa", "qald-en", "musique"]
 DATASET_FILE_MAP = {
-    "2wiki": "dataset/2wikiMultihopQA/dev_sampled.json",
-    "webqsp": "dataset/webqsp/WebQSP.json",
-    "advhotpotqa": "dataset/advhotpot/hotpotadv_dev.json",
-    "qald-en": "dataset/qald_10_en/qald_10-en.json",
-    "musique": "dataset/musique/sampled_musique.json",
+    "2wiki": os.path.join(PROJECT_ROOT, "dataset", "2wikiMultihopQA", "dev_sampled.json"),
+    "webqsp": os.path.join(PROJECT_ROOT, "dataset", "webQSP", "WebQSP.json"),
+    "advhotpotqa": os.path.join(PROJECT_ROOT, "dataset", "advhotpot", "hotpotadv_dev.json"),
+    "qald-en": os.path.join(PROJECT_ROOT, "dataset", "qald_10_en", "qald_10-en.json"),
+    "musique": os.path.join(PROJECT_ROOT, "dataset", "musique", "sampled_musique.json"),
 }
 NUM_THREADS = 5
-OUTPUT_DIR = "result"
+OUTPUT_DIR = os.path.join(PROJECT_ROOT, "result")
 # --- End Dataset config ---
 
 def load_processed_ids(output_path):
@@ -273,7 +276,6 @@ def process_single_question(question):
 
 
 def main():
-    project_root = os.path.dirname(os.path.abspath(__file__))
     parser = argparse.ArgumentParser(description="Process QA datasets or single questions using LogicTree with metrics.")
     subparsers = parser.add_subparsers(dest='mode', required=True, help='Operating mode: "dataset" or "single"')
 
@@ -295,10 +297,9 @@ def main():
         if dataset_key not in DATASET_FILE_MAP:
             print(f"Error: Path undefined for dataset '{dataset_key}'.", file=sys.stderr); sys.exit(1)
 
-        relative_dataset_path = DATASET_FILE_MAP[dataset_key]
-        dataset_file_path = os.path.join(project_root, relative_dataset_path)
+        dataset_file_path = DATASET_FILE_MAP[dataset_key]
         output_filename = args.output_filename
-        output_dir_path = os.path.join(project_root, OUTPUT_DIR)
+        output_dir_path = OUTPUT_DIR
         output_file_path = os.path.join(output_dir_path, output_filename)
 
         if not os.path.isfile(dataset_file_path):

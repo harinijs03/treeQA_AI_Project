@@ -5,7 +5,7 @@ import time
 import requests
 
 from LLMs.models import getModelResponse
-from treeQA_Config import proxies
+from treeQA_Config import TREEQA_MAX_RELATIONS_PER_DIRECTION, proxies
 
 from treeQA.tree_class.infoBox import infoBox
 import asyncio
@@ -21,15 +21,15 @@ def searchWikiID(query, language='en', limit=2):
     params = {
         'action': 'wbsearchentities',
         'format': 'json',
-        'search': {query},  # 搜索文本
-        'language': {language},  # 查询语言（英文）
+        'search': query,
+        'language': language,
         'type': 'item',
-        'limit': {limit}  # 返回最大数目
+        'limit': limit
     }
 
-    # 访问
+
     re_json = safe_request(url, params,proxies)
-    # 转为json数据
+
 
     #print(json.dumps(re_json, indent=2))
     return re_json["search"]
@@ -38,14 +38,14 @@ def searchWikiID(query, language='en', limit=2):
 
 def getWikidataEntity(entityLabels):
     results = {}
-    # 通过wikidata接口获取直接检索标签
+
     for item in entityLabels:
-        # 查询实体相关信息
+
         jsonData = searchWikiID(item)
         if jsonData:
-            # 解析JSON字符串为Python对象
+
             data = jsonData
-            # 遍历数据并提取'label'和'description'
+
             for tempItem in data:
                 # print(f"getItem:{item}")
                 id = tempItem.get('id')
@@ -60,19 +60,19 @@ def safe_request(url, params, my_proxies, max_retries=3):
     for attempt in range(max_retries):
         try:
             response = requests.get(url,headers=HEADERS, params=params,proxies=my_proxies)
-            response.raise_for_status()  # 如果响应状态码不是200，则抛出HTTPError
+            response.raise_for_status()
             return response.json()
         except (requests.exceptions.ProxyError, requests.exceptions.ConnectionError) as e:
             if attempt < (max_retries - 1):  # i.e. if it's not the last retry
                 print(f"Request failed: {e}. Retrying ({attempt + 1}/{max_retries})...")
-                time.sleep(2 ** attempt)  # 指数退避
+                time.sleep(2 ** attempt)
             else:
-                raise  # 如果所有重试都失败了，就抛出最后一次异常
-    return None  # 如果没有异常抛出，返回None
+                raise
+    return None
 
 async def fetch_relation_value(session, entity_code, relation_code, pointing):
     MAX_RETRIES = 3
-    RETRY_DELAY = 3  # 秒
+    RETRY_DELAY = 3
 
     if pointing:
         sparql_query = (
@@ -98,7 +98,12 @@ async def fetch_relation_value(session, entity_code, relation_code, pointing):
     retries = 0
     while retries < MAX_RETRIES:
         try:
-            async with session.get(url, params=params, headers=HEADERS, proxy=proxies['http']) as response:
+            async with session.get(
+                url,
+                params=params,
+                headers=HEADERS,
+                proxy=proxies.get('http') if proxies else None
+            ) as response:
                 if response.status == 429:
                     print(f"Rate limited, waiting for {RETRY_DELAY} seconds...")
                     await asyncio.sleep(RETRY_DELAY)
@@ -164,19 +169,19 @@ def getRelationValue(json_data):
     return asyncio.run(getAnswerOfRelation(json_data))
 
 
-# 加载prop用于查询
+
 def load_property_data(file_path):
-    """
-    加载属性数据文件，将 JSON 文件读取为列表并转换为字典，便于查找
-    """
+
+
+
     with open(file_path, 'r', encoding='utf-8') as f:
         property_list = json.load(f)
-    # 将列表转换为字典，key 为 "id"，value 为该条目
+
     return {item['id']: item for item in property_list}
 
-# 获取实体指向的属性/关系 或 指向实体的关系
+
 def getAllRelationOfQID(QID, property_data):
-    # 1. 构造查询：获取 QID 所指向的关系（QID -> 关系）
+
     sparql_query_pointed = f"""
     SELECT DISTINCT ?property ?propertyLabel WHERE {{
       wd:{QID} ?property ?target.
@@ -185,7 +190,7 @@ def getAllRelationOfQID(QID, property_data):
     Limit 100
     """
 
-    # 2. 构造查询：获取指向 QID 的关系（关系 -> QID）
+
     sparql_query_pointing = f"""
     SELECT DISTINCT ?property ?propertyLabel WHERE {{
       ?item ?property wd:{QID}.
@@ -194,13 +199,13 @@ def getAllRelationOfQID(QID, property_data):
     LIMIT 100 OFFSET 0
     """
 
-    # 3. 设置请求头和请求体
+
     url = "https://query.wikidata.org/sparql"
     params = {
         'format': 'json'
     }
 
-    # 4. 发送请求获取 QID 所指向的关系（QID -> 关系）
+
     params['query'] = sparql_query_pointed
 
     try:
@@ -209,7 +214,7 @@ def getAllRelationOfQID(QID, property_data):
         print(e)
         response_pointed=[]
 
-    # 5. 发送请求获取指向 QID 的关系（关系 -> QID）
+
     params['query'] = sparql_query_pointing
     try:
         response_pointing =  safe_request(url, params, proxies)
@@ -218,50 +223,50 @@ def getAllRelationOfQID(QID, property_data):
         response_pointing=[]
     pointed_relations = {}
     if response_pointed:
-        # 6. 处理 QID 所指向的关系
+
         data_pointed = response_pointed
 
         for item in data_pointed['results']['bindings']:
             property_uri = item['property']['value']
-            # 过滤，只保留以 "http://www.wikidata.org/prop/P" 开头的属性
+
             if 'wikidata' in property_uri:
-                # 提取以 P 开头的属性 ID（如 P7033）
+
                 property_id = property_uri.split('/')[-1]
-                # 如果该 PID 在文件中查到，保存其 label
+
                 if property_id in property_data:
                     pointed_relations[property_id] = property_data[property_id]["label"]
     pointing_relations = {}
     if response_pointing:
-        # 7. 处理指向 QID 的关系
+
         data_pointing = response_pointing
 
         for item in data_pointing['results']['bindings']:
             property_uri = item['property']['value']
-            # 过滤，只保留以 "http://www.wikidata.org/prop/P" 开头的属性
+
             if 'wikidata' in property_uri:
-                # 提取以 P 开头的属性 ID（如 P7033）
+
                 property_id = property_uri.split('/')[-1]
-                # 如果该 PID 在文件中查到，保存其 label
+
                 if property_id in property_data:
                     pointing_relations[property_id] = property_data[property_id]["label"]
 
-    # 8. 返回结果，包含 ID 和 label
+
     return {
-        "pointing_relations": pointing_relations,  # 返回字典形式，包含ID和label
-        "pointed_relations": pointed_relations  # 返回字典形式，包含ID和label
+        "pointing_relations": pointing_relations,
+        "pointed_relations": pointed_relations
     }
 def get_wikipedia_title_from_qid(qid, language='en'):
-    """
-    根据Wikidata的QID获取对应语言的Wikipedia条目标题.
 
-    参数:
-    qid (str): Wikidata实体编号 (例如 'Q42').
-    language (str): Wikipedia语言代码 (默认为 'en'，即英文).
 
-    返回:
-    str: Wikipedia条目标题 (如果找到).
-    None: 如果未找到条目.
-    """
+
+
+
+
+
+
+
+
+
     url = "https://www.wikidata.org/w/api.php"
     params = {
         'action': 'wbgetentities',
@@ -272,9 +277,9 @@ def get_wikipedia_title_from_qid(qid, language='en'):
     }
 
     try:
-        data = safe_request(url, params, proxies) # 检查请求是否成功
+        data = safe_request(url, params, proxies)
 
-        # 提取Wikipedia标题
+
         if 'entities' in data and qid in data['entities']:
             sitelinks = data['entities'][qid].get('sitelinks', {})
             wiki_key = f"{language}wiki"
@@ -285,18 +290,18 @@ def get_wikipedia_title_from_qid(qid, language='en'):
 
     return None
 def relationLinking(entityIDs,question,itemInfo,myInfoBox,top_k,logicTree):
-    # 创建一个字典来存储每个实体以及其关系信息
+
     InfoByEntity = {}
     retrieve_relation_List=set()
-    # 遍历每一个实体ID
+
     for QId in entityIDs:
         if not QId:
             print(f"QId is None:{QId}")
             continue
-        # 初始化当前实体的关系信息字典和关系标签集合
+
         if QId not in InfoByEntity:
             InfoByEntity[QId] = {}
-        # 获取当前实体的所有关系项
+
         current_dir = os.path.dirname(os.path.abspath(__file__))
 
         # Construct the absolute path to wikidata_props.json, which is
@@ -304,6 +309,12 @@ def relationLinking(entityIDs,question,itemInfo,myInfoBox,top_k,logicTree):
         props_file_path = os.path.join(current_dir, 'wikidata_props.json')
         relaJson = getAllRelationOfQID(QId, load_property_data(props_file_path))
         if relaJson != {}:
+            relaJson["pointed_relations"] = dict(
+                list(relaJson["pointed_relations"].items())[:TREEQA_MAX_RELATIONS_PER_DIRECTION]
+            )
+            relaJson["pointing_relations"] = dict(
+                list(relaJson["pointing_relations"].items())[:TREEQA_MAX_RELATIONS_PER_DIRECTION]
+            )
             pointing_relations_pid = []
             pointed_relations_pid = []
             for item in relaJson["pointing_relations"]:
@@ -311,7 +322,7 @@ def relationLinking(entityIDs,question,itemInfo,myInfoBox,top_k,logicTree):
             for item in relaJson["pointed_relations"]:
                 pointed_relations_pid.append(relaJson["pointed_relations"][item])
 
-            # 当前实体指向关系
+
             prompt_get_top6_rela = f"""
             现在请根据info，从两个后续列表中分别选出{top_k}个最可能与之相关的关系，并且最相关的关系排在最前面。
                 info:{question}

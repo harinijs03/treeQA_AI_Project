@@ -60,6 +60,7 @@ cover/
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
+result/treeqa_live_runs.jsonl
 
 # Flask stuff:
 instance/
@@ -129,6 +130,8 @@ celerybeat.pid
 
 # Environments
 .env
+.env.*
+.env.example
 .venv
 env/
 venv/
@@ -172,3 +175,5 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+treeQA_Config.py

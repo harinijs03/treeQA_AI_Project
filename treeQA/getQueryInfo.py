@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from entitylinking.ELModels import llmForEntityExtract,llmForEntityFilter, linkEntity
 from treeQA.wikipediaUtills import getWikipediaResultByNV, getWikipediaResultDirect
-from treeQA_Config import Chroma_store, article_top_k, RLTop_k
+from treeQA_Config import Chroma_store, RetrieveModelName, article_top_k, RLTop_k
 from treeQA.wikidataUtills import relationLinking, get_wikipedia_title_from_qid, getWikidataEntity, HEADERS
 
 import requests
@@ -16,26 +16,26 @@ def safe_request(url, params, my_proxies, max_retries=3):
     for attempt in range(max_retries):
         try:
             response = requests.get(url,headers=HEADERS,params=params,proxies=my_proxies)
-            response.raise_for_status()  # 如果响应状态码不是200，则抛出HTTPError
+            response.raise_for_status()
             return response.json()
         except (requests.exceptions.ProxyError, requests.exceptions.ConnectionError) as e:
             if attempt < (max_retries - 1):  # i.e. if it's not the last retry
                 print(f"Request failed: {e}. Retrying ({attempt + 1}/{max_retries})...")
-                time.sleep(2 ** attempt)  # 指数退避
+                time.sleep(2 ** attempt)
             else:
-                raise  # 如果所有重试都失败了，就抛出最后一次异常
-    return None  # 如果没有异常抛出，返回None
+                raise
+    return None
 
 
-# 获取文本信息
+
 def fetch_wikipedia_text(QID, query, top_k):
     label = get_wikipedia_title_from_qid(QID)
-    if Chroma_store:
+    if Chroma_store and RetrieveModelName != "lexical":
         return getWikipediaResultByNV(label, query,top_k=top_k)
     return getWikipediaResultDirect(label, query,top_k=top_k)
 
 
-def getQueryInfo(query, myInfoBox,logicTree,top_k=RLTop_k):
+def getQueryInfo(query, myInfoBox, logicTree, top_k=RLTop_k, path=None):
 
     with ThreadPoolExecutor() as executor:
         # Step 1: Parallel entity extraction and linking
@@ -56,14 +56,14 @@ def getQueryInfo(query, myInfoBox,logicTree,top_k=RLTop_k):
         entity_results_future = executor.submit(getWikidataEntity, entities)
         entity_results = entity_results_future.result()
         #relaQuery = relation_generalization_future.result()
-        #print(f"可能涉及的关系：{relaQuery}")
+
         # Merge entity linking results
         for entityLinkingItem in json_data:
-            # 避免消耗过多tokens只保留实体定义的第一句话
-            # 找到第一个句号的位置
+
+
             first_sentence_end = entityLinkingItem['definition'].find('.')
 
-            # 提取第一句话
+
             first_sentence = entityLinkingItem['definition'][
                              :first_sentence_end + 1] if first_sentence_end != -1 else entityLinkingItem['definition']
             entity_results[entityLinkingItem['wikidata']] = {
@@ -95,6 +95,25 @@ def getQueryInfo(query, myInfoBox,logicTree,top_k=RLTop_k):
             myInfoBox.addText(text)
 
         retrieve_relation_List = retrieve_relation_future.result()
+    trace_text = []
+    for group in myInfoBox.textInfo:
+        entries = group if isinstance(group, list) else [group]
+        for entry in entries:
+            if isinstance(entry, dict):
+                trace_text.append({
+                    "id": entry.get("id"),
+                    "title": entry.get("title"),
+                    "content": entry.get("content"),
+                    "similarity": entry.get("similarity"),
+                })
+    logicTree.record_trace_event({
+        "type": "retrieval",
+        "path": list(path) if path is not None else None,
+        "query": query,
+        "extracted_entities": entities,
+        "wikidata_candidates": list(entity_results.values())[:20],
+        "selected_entity_ids": retrieve_QID,
+        "graph_facts": myInfoBox.graphInfo,
+        "wikipedia_passages": trace_text[:20],
+    })
     return retrieve_QID, list(retrieve_relation_List)
-
-

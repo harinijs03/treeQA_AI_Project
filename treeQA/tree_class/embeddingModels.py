@@ -18,11 +18,9 @@ class EmbeddingFunction(Protocol[D]):
 class treeQAEmbeddings(EmbeddingFunction[Documents]):
 
     def __call__(self, input: Documents) -> Embeddings:
-        # Convert input to list if it's a single document (string)
         if isinstance(input, str):
-            input = [input]  # Ensure it's in list format
+            input = [input]
         elif not isinstance(input, list):
             raise ValueError("Input should be a list of strings or a single string.")
         return getEmbeddings(input)
-
 

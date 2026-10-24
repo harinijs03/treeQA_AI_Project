@@ -1,52 +1,100 @@
 import json
+from copy import deepcopy
 import concurrent.futures
 import threading
 from queue import Queue
 
-# 假设这些是你项目中的模块
+
 from LLMs.models import getModelResponse
 from treeQA.getQueryInfo import getQueryInfo
 from treeQA.tree_class.infoBox import infoBox
+from treeQA_Config import (
+    TREEQA_MAX_BRANCHING,
+    TREEQA_MAX_RETRIEVAL_RETRIES,
+    TREEQA_MAX_REWRITES_PER_NODE,
+    TREEQA_MAX_TREE_DEPTH,
+    TREEQA_MAX_TREE_UPDATES,
+)
 
-# 创建一个线程局部存储，用于保存每个线程的 tokenCount
-# 这比在每次LLM调用后都加锁更高效
+
+def limit_tree_size(root, max_depth=TREEQA_MAX_TREE_DEPTH, max_branching=TREEQA_MAX_BRANCHING):
+    """Trim excess generated nodes to the configured depth and branching limits."""
+    removed = 0
+
+    def visit(node, depth):
+        nonlocal removed
+        children = node.get("children", [])
+        if not isinstance(children, list):
+            node["children"] = []
+            return
+        if len(children) > max_branching:
+            removed += len(children) - max_branching
+            children = children[:max_branching]
+            node["children"] = children
+        if depth >= max_depth:
+            removed += len(children)
+            node["children"] = []
+            return
+        for child in children:
+            if isinstance(child, dict):
+                visit(child, depth + 1)
+
+    visit(root, 0)
+    return removed
+
+
+
 thread_local = threading.local()
 
 
 class LogicTree:
-    """
-    一个表示和操作逻辑推理树的类。
-    支持串行和层级并行的验证与修正机制。
-    """
+
+
+
+
 
     def __init__(self, data):
-        """
-        初始化LogicTree实例。
 
-        Args:
-            data (dict): 包含初始逻辑树结构的字典。
-        """
+
+
+
+
+
         self.data = data
         self.root = self.data.get("logic_tree", {})
         self.fix_count = 0
         self.tokenCount = 0
-        # 使用锁来保护对共享资源（如计数器和树结构）的并发访问
+        self.trace_events = []
+        self.node_rewrite_counts = {}
+        self.tree_update_count = 0
+
         self.lock = threading.Lock()
+        self.data["execution_trace"] = {
+            "initial_tree": deepcopy(self.data.get("logic_tree", {})),
+            "events": self.trace_events,
+        }
+
+    def record_trace_event(self, event):
+        with self.lock:
+            self.trace_events.append(event)
 
     @staticmethod
     def logic_tree_init(query):
-        """
-        静态方法，用于从一个问题（query）初始化一个逻辑树。
-        它调用LLM来分解问题并生成初始的树结构。
-        """
+
+
+
+
         prompt = f"""You are an intelligent assistant who is good at analyzing and reasoning, and your task is to construct a logic tree to break down and reason step by step according to the complex questions posed by the user, and finally arrive at the answer.
 
     **Rules for constructing a logic tree:**
 
+    - Maximum depth: {TREEQA_MAX_TREE_DEPTH} subquestion levels below the root.
+    - Maximum branching factor: {TREEQA_MAX_BRANCHING} children per node.
+
     1. **Root:** the user's main Question.
     2. **Sub-nodes:** Each sub-node contains a **Sub-question** and a **Specific Hypothesis Answer** based on your own knowledge.
         * **Sub-questions:** are used to guide reasoning and information retrieval, and each sub-question should address only a single entity or relationship.
-        * **Concrete Hypothesis Answer:** is a **concrete answer** to a sub-question given by your own knowledge, rather than an abstract or broad hypothesis.This answer should be the one that the model considers most likely, even though it may not be correct,and the answer should also be richly detailed.
+        * **Concrete Hypothesis Answer:** give the most likely concrete, verifiable answer in one short phrase or sentence.
     3. **Construction principles:** The construction of the logic tree follows the pyramid principle:
         * **Conclusion first:** The hypothetical answer of a parent node should be a generalization of the information of its children.
         * **Correspondence between top and bottom:** The information of a child node should support the hypothetical answer of the parent node.
@@ -110,6 +158,7 @@ class LogicTree:
             json_string = result[result.find('{'):result.rfind('}') + 1]
             data = json.loads(json_string)
             data["input_question"] = query
+            data["tree_limit_pruned_nodes"] = limit_tree_size(data.get("logic_tree", {}))
             return data, tokenCount
         except json.JSONDecodeError as e:
             print(f"Error: Decomposition failed, invalid JSON format. {e}")
@@ -117,7 +166,7 @@ class LogicTree:
             return None, tokenCount
 
     def get_node_by_path(self, path):
-        """通过路径获取树中的一个节点。"""
+
         node = self.root
         try:
             for index in path:
@@ -127,21 +176,40 @@ class LogicTree:
             return None
 
     def _increment_token_count(self, count):
-        """线程安全地增加全局 token 计数。"""
+
         with self.lock:
             self.tokenCount += count
 
     def _increment_fix_count(self):
-        """线程安全地增加全局 fix 计数。"""
+
         with self.lock:
             self.fix_count += 1
 
+    def _reserve_tree_update(self, path):
+        path_key = tuple(path)
+        with self.lock:
+            rewrite_count = self.node_rewrite_counts.get(path_key, 0)
+            if (
+                rewrite_count >= TREEQA_MAX_REWRITES_PER_NODE
+                or self.tree_update_count >= TREEQA_MAX_TREE_UPDATES
+            ):
+                return False
+            self.node_rewrite_counts[path_key] = rewrite_count + 1
+            self.tree_update_count += 1
+            return True
+
+    def _release_tree_update(self, path):
+        path_key = tuple(path)
+        with self.lock:
+            self.node_rewrite_counts[path_key] -= 1
+            self.tree_update_count -= 1
+
     def refine_subtree(self, path):
-        """
-        对指定路径的节点进行验证和修正。此方法是线程安全的。
-        它直接修改树的节点，不返回值。
-        """
-        # 初始化当前线程的 token 计数器
+
+
+
+
+
         thread_local.token_count = 0
 
         current_node = self.get_node_by_path(path)
@@ -156,7 +224,7 @@ class LogicTree:
         childQuestion = current_node.get("sub_question")
         hypothesis_answer = current_node.get("hypothesis_answer")
 
-        getQueryInfo(childQuestion + hypothesis_answer, checkInfoBox, self)
+        getQueryInfo(childQuestion + hypothesis_answer, checkInfoBox, self, path=path)
 
         factCheckPrompt = f"""Please verify whether the answer is correct based on the given Info.  
 
@@ -194,10 +262,21 @@ class LogicTree:
             resultJson = json.loads(json_string)
         except json.JSONDecodeError:
             print(f"Error: Failed to decode JSON from fact-check LLM for path {path}.")
+            current_node["verification_status"] = "verification_error"
+            self.record_trace_event({
+                "type": "verification",
+                "path": list(path),
+                "status": "verification_error",
+                "reason": "The model returned invalid verification JSON.",
+            })
             self._increment_token_count(thread_local.token_count)
             return
 
-        if resultJson.get("isTrue") == "unknown" and not resultJson.get("fact_sufficient"):
+        if (
+            resultJson.get("isTrue") == "unknown"
+            and not resultJson.get("fact_sufficient")
+            and TREEQA_MAX_RETRIEVAL_RETRIES > 0
+        ):
             prompt_new_cue = """The available information is insufficient to answer the question. Based on the given information and the question, generate a new clue to help retrieve the missing information needed to answer it.  
                 ### Output Format (JSON only):  
                 ```json
@@ -209,7 +288,19 @@ class LogicTree:
             thread_local.token_count += tokenCount
             print(f"######### No useful information for path {path}, new clue provided: {new_clue_str} #############")
 
-            getQueryInfo(new_clue_str, checkInfoBox, self)
+            self.record_trace_event({
+                "type": "verification",
+                "path": list(path),
+                "status": "unknown",
+                "reason": resultJson.get("reason", "Evidence was insufficient."),
+                "new_clue": new_clue_str,
+            })
+            self.record_trace_event({
+                "type": "retrieval_retry",
+                "path": list(path),
+                "reason": "Verification returned unknown with insufficient evidence.",
+            })
+            getQueryInfo(new_clue_str, checkInfoBox, self, path=path)
 
             query_info_updated = f"question：{childQuestion}\nanswer:{hypothesis_answer}\nInfo：\t\ntextInfo:{checkInfoBox.textInfo}\t\ngraphInfo:{checkInfoBox.graphInfo}"
             result, tokenCount = getModelResponse(factCheckPrompt, query_info_updated)
@@ -220,18 +311,55 @@ class LogicTree:
                 resultJson = json.loads(json_string)
             except json.JSONDecodeError:
                 print(f"Error: Failed to decode JSON from second fact-check for path {path}.")
+                current_node["verification_status"] = "verification_error"
+                self.record_trace_event({
+                    "type": "verification",
+                    "path": list(path),
+                    "status": "verification_error",
+                    "reason": "The model returned invalid verification JSON after retrieval retry.",
+                })
                 self._increment_token_count(thread_local.token_count)
                 return
 
         if resultJson.get("isTrue") is True:
             print(f"############ Evidence supports node at path {path}! ##############")
-            # 【修改点】调用辅助函数添加详细引用
+            current_node["verification_status"] = "verified"
+            current_node["verification_reason"] = resultJson.get("reason")
+            self.record_trace_event({
+                "type": "verification",
+                "path": list(path),
+                "status": "verified",
+                "reason": resultJson.get("reason", ""),
+                "references": resultJson.get("ref", {}),
+            })
+
             self._add_references_to_node(current_node, resultJson, checkInfoBox)
 
         elif resultJson.get("isTrue") is False:
             errorReason = resultJson.get("reason", "No reason provided.")
             print(f"############ Conflict found for node at path {path}: {errorReason} ###################")
-            self._increment_fix_count()
+            original_node = deepcopy(current_node)
+            self.record_trace_event({
+                "type": "verification",
+                "path": list(path),
+                "status": "contradicted",
+                "reason": errorReason,
+                "references": resultJson.get("ref", {}),
+            })
+
+            if not self._reserve_tree_update(path):
+                current_node["verification_status"] = "correction_limit_reached"
+                self.record_trace_event({
+                    "type": "correction",
+                    "path": list(path),
+                    "reason": errorReason,
+                    "status": "not_rewritten",
+                    "error": "The per-node or per-question rewrite limit was reached.",
+                    "before": deepcopy(current_node),
+                    "after": deepcopy(current_node),
+                })
+                self._increment_token_count(thread_local.token_count)
+                return
 
             fixHypothesisPropmt = f"""An error was found in the step {current_node} of the current assumption, with a specific error reason of {errorReason}.
                            Please fully review and refactor all sub_questions and hypothesis_answer starting at subtree node:{current_node}.
@@ -248,71 +376,119 @@ class LogicTree:
             try:
                 json_string = result[result.find('{'):result.rfind('}') + 1]
                 fixedHypothesis = json.loads(json_string)
+                if not isinstance(fixedHypothesis, dict):
+                    raise ValueError("Corrected subtree must be a JSON object.")
+                pruned_nodes = limit_tree_size(
+                    fixedHypothesis,
+                    max_depth=max(0, TREEQA_MAX_TREE_DEPTH - len(path)),
+                )
 
-                # 线程安全地更新节点
+
                 with self.lock:
                     current_node.clear()
                     current_node.update(fixedHypothesis)
-
-                # 【修改点】在修正后，也调用辅助函数添加详细引用
-                self._add_references_to_node(current_node, resultJson, checkInfoBox)
+                    current_node["verification_status"] = "corrected_pending_verification"
+                    current_node["correction_reason"] = errorReason
+                    self.fix_count += 1
+                self.record_trace_event({
+                    "type": "correction",
+                    "path": list(path),
+                    "reason": errorReason,
+                    "status": "rewritten_pending_verification",
+                    "rewrite_number": self.node_rewrite_counts[tuple(path)],
+                    "tree_limit_pruned_nodes": pruned_nodes,
+                    "before": original_node,
+                    "after": deepcopy(current_node),
+                })
 
                 print(f"################ Subtree at path {path} update complete! ################")
-            except json.JSONDecodeError:
+                self._increment_token_count(thread_local.token_count)
+                self.refine_subtree(path)
+                rewritten_node = self.get_node_by_path(path)
+                reverification_status = (
+                    rewritten_node.get("verification_status")
+                    if rewritten_node
+                    else "node_missing"
+                )
+                self.record_trace_event({
+                    "type": "correction_reverification",
+                    "path": list(path),
+                    "status": reverification_status,
+                })
+                return
+            except (json.JSONDecodeError, ValueError):
+                self._release_tree_update(path)
                 print(f"Error: Failed to decode JSON for subtree fix at path {path}.")
+                current_node["verification_status"] = "correction_error"
+                self.record_trace_event({
+                    "type": "correction",
+                    "path": list(path),
+                    "reason": errorReason,
+                    "error": "The model returned invalid corrected-subtree JSON.",
+                    "before": original_node,
+                    "after": deepcopy(current_node),
+                })
         else:
             print(f"Unable to check node at path {path}, continue to next node.")
+            current_node["verification_status"] = "unknown"
+            self.record_trace_event({
+                "type": "verification",
+                "path": list(path),
+                "status": "unknown",
+                "reason": resultJson.get("reason", "Evidence did not establish whether the hypothesis is correct."),
+                "references": resultJson.get("ref", {}),
+            })
 
-        # 在线程结束时，将该线程的 token 总数加到全局计数器
+
         self._increment_token_count(thread_local.token_count)
 
     def _add_references_to_node(self, node, ref_json, info_box):
-        """
-        【新增辅助函数】线程安全地向节点添加引用信息，包括详细的维基百科文本。
-        """
+
+
+
         with self.lock:
             if "ref" not in node:
                 node["ref"] = {}
 
-            # 提取维基百科ID
+
             wiki_ids = ref_json.get("ref", {}).get("wikipedia", [])
 
-            # 查找并构建详细的维基百科引用
+
             wikipedia_ref_with_text = []
             if wiki_ids:
                 for title_id in wiki_ids:
                     found = False
                     for item in info_box.textInfo:
-                        # 假设 item[0]['id'] 是文章标题ID
+
                         if item[0]['id'] == title_id:
                             content = item[0]['content']
                             wikipedia_ref_with_text.append(f"{title_id}||{content}")
                             found = True
                             break
                     if not found:
-                        # 如果在info_box中没找到，就只添加ID
+
                         wikipedia_ref_with_text.append(title_id)
 
-            # 更新节点的引用信息
-            # 先复制一份，避免直接修改传入的ref_json
+
+
             updated_ref = ref_json.get("ref", {}).copy()
             if wikipedia_ref_with_text:
                 updated_ref["wikipedia"] = wikipedia_ref_with_text
 
-            # 合并到节点的ref字段
-            # 这里使用合并，而不是直接替换，以保留可能已有的其他引用类型
+
+
             for key, value in updated_ref.items():
                 if key not in node["ref"]:
                     node["ref"][key] = []
-                # 避免重复添加
+
                 for item in value:
                     if item not in node["ref"][key]:
                         node["ref"][key].append(item)
     def check_and_refine_parallel(self, max_workers=5):
-        """
-        【并行方法】使用广度优先和线程池并行地检查和修正树。
-        这是推荐的、用于降低延迟的方法。
-        """
+
+
+
+
         if not self.root.get("children"):
             print("Tree has no children to check.")
             return
@@ -343,7 +519,7 @@ class LogicTree:
 
             print(f"--- Level {level} processing complete ---")
 
-            # 重新收集下一层的节点，因为树的结构可能已经改变
+
             for path in paths_for_next_level:
                 parent_node = self.get_node_by_path(path)
                 if parent_node and "children" in parent_node:
@@ -354,10 +530,10 @@ class LogicTree:
             level += 1
 
     def check_and_refine_serial(self):
-        """
-        【串行方法】使用深度优先递归的方式检查和修正树。
-        用于功能验证或性能对比。
-        """
+
+
+
+
 
         def _recursive_check(node, path):
             if "sub_question" in node and "hypothesis_answer" in node:
@@ -365,7 +541,7 @@ class LogicTree:
                 self.refine_subtree(path)
 
             if "children" in node:
-                # 必须重新获取节点，因为它可能已被refine_subtree修改
+
                 current_node = self.get_node_by_path(path)
                 if current_node and "children" in current_node:
                     for i, child in enumerate(current_node["children"]):
@@ -374,12 +550,14 @@ class LogicTree:
         _recursive_check(self.root, [])
 
     def update_final_answer(self):
-        """调用LLM，基于修正后的整棵树信息生成最终答案。"""
+        """Generate a short answer from the refined reasoning tree."""
         info = self.data["logic_tree"]
         prompt = f"""
-            Now based all information from the verified logic tree and your own knowledge, please give a final, concise answer to the question.
+            Answer the question using the reasoning tree when helpful.
+            Output only the shortest answer string that fully answers the question.
+            Do not include an explanation, reasoning, markdown, or a leading phrase.
             question: {self.data["input_question"]}
-            verified logic tree information: {info}
+            reasoning tree: {info}
          """
         final_answer, tokenCount = getModelResponse(prompt, self.data["input_question"])
         self.tokenCount += tokenCount
@@ -387,11 +565,11 @@ class LogicTree:
         self.data["answer"] = final_answer
 
     def to_json(self):
-        """将整棵树（包括最终答案）转换为格式化的JSON字符串。"""
+
         return json.dumps(self.data, indent=4), self.fix_count
 
     def print_tree(self, node=None, indent=0, output_lines=None):
-        """将整棵树转换为易于阅读的Markdown格式文本。"""
+
         if output_lines is None:
             output_lines = []
 
@@ -420,13 +598,13 @@ class LogicTree:
 
 # ================== Example Usage ==================
 if __name__ == '__main__':
-    # 这是一个模拟的运行流程
-    # 1. 定义你的依赖项（这里用mock函数代替）
+
+
     def getModelResponse(prompt, query):
         print("--- Mock LLM Call ---")
         print(f"Prompt: {prompt[:100]}...")
         print(f"Query: {query}")
-        # 模拟LLM返回的JSON
+
         if "construct a logic tree" in prompt:
             mock_tree = {
                 "input_question": "Who was the President of the United States when humans made their third landing on the moon?",
@@ -493,10 +671,10 @@ if __name__ == '__main__':
             self.graphInfo = []
 
 
-    # 2. 运行主流程
+
     user_query = "Who was the President of the United States when humans made their third landing on the moon?"
 
-    # 初始化树
+
     initial_data, init_tokens = LogicTree.logic_tree_init(user_query)
     if initial_data:
         my_tree = LogicTree(initial_data)
@@ -505,17 +683,17 @@ if __name__ == '__main__':
         print("\n=============== INITIAL TREE ===============\n")
         print(my_tree.print_tree())
 
-        # 使用并行方法进行验证和修正
+
         print("\n=============== STARTING PARALLEL REFINEMENT ===============\n")
-        my_tree.check_and_refine_parallel(max_workers=2)  # 使用2个worker进行并行处理
+        my_tree.check_and_refine_parallel(max_workers=2)
 
         print("\n=============== REFINED TREE ===============\n")
         print(my_tree.print_tree())
 
-        # 生成最终答案
+
         my_tree.update_final_answer()
 
-        # 输出最终结果
+
         final_json, fix_count = my_tree.to_json()
         print("\n=============== FINAL JSON OUTPUT ===============\n")
         print(final_json)

@@ -5,6 +5,24 @@ from openai import OpenAI
 
 from treeQA_Config import nv_embed_v2_url,RetrieveModelName
 
+_sentence_transformer = None
+
+
+def getMiniLMEmbeddings(textList):
+    global _sentence_transformer
+    if _sentence_transformer is None:
+        from sentence_transformers import SentenceTransformer
+        from treeQA_Config import TREEQA_EMBEDDING_MODEL
+
+        _sentence_transformer = SentenceTransformer(TREEQA_EMBEDDING_MODEL, device="cpu")
+    vectors = _sentence_transformer.encode(
+        textList,
+        normalize_embeddings=True,
+        convert_to_numpy=True,
+        show_progress_bar=False,
+    )
+    return vectors.tolist()
+
 
 def getOpenAIEmbeddings(textList):
     client = OpenAI()
@@ -24,7 +42,7 @@ def getNVEmbeddings(textList, max_retries=3, retry_delay=3):
         "instruction":"retrieve passages that answer the question",
         "max_length": 32768
     }
-    for attempt in range(max_retries + 1):  # 尝试次数为 max_retries + 1
+    for attempt in range(max_retries + 1):
         try:
             response = requests.post(url, json=data)
             if response.status_code == 200:
@@ -32,7 +50,7 @@ def getNVEmbeddings(textList, max_retries=3, retry_delay=3):
             else:
                 if attempt < max_retries:
                     print(f"请求失败，状态码: {response.status_code}，正在重试 ({attempt + 1}/{max_retries})...")
-                    time.sleep(retry_delay)  # 等待指定的时间后再试
+                    time.sleep(retry_delay)
                 else:
                     print(f"所有重试均失败，状态码: {response.status_code}")
                     print(response.text)
@@ -46,11 +64,14 @@ def getNVEmbeddings(textList, max_retries=3, retry_delay=3):
                 return None
 
 model_functions = {
+    "minilm": getMiniLMEmbeddings,
     "nv-embed-v2": getNVEmbeddings,
     "text-embedding-3-small": getOpenAIEmbeddings,
 }
 
-def getEmbeddings(textList,model_name=RetrieveModelName):
+def getEmbeddings(textList, model_name=None):
+    if model_name is None:
+        model_name = RetrieveModelName
     response_function = model_functions.get(model_name)
     if response_function:
         return response_function(textList)

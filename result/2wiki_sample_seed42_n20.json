@@ -1,0 +1,778 @@
+[
+  {
+    "id": "0ffe5ca00bde11eba7f7acde48001122",
+    "question": "What is the date of death of Otto Ii, Count Of Guelders's father?",
+    "gold": "22 October 1229",
+    "answer_aliases": [],
+    "supporting_facts": [
+      [
+        "Otto II, Count of Guelders",
+        3
+      ],
+      [
+        "Gerard III, Count of Guelders",
+        0
+      ]
+    ],
+    "evidences": [
+      [
+        "Otto II, Count of Guelders",
+        "father",
+        "Gerard III, Count of Guelders"
+      ],
+      [
+        "Gerard III, Count of Guelders",
+        "date of death",
+        "22 October 1229"
+      ]
+    ],
+    "evidences_id": [
+      [
+        "Q78398",
+        "father",
+        "Q450041"
+      ],
+      [
+        "Q450041",
+        "date of death",
+        "date_information"
+      ]
+    ]
+  },
+  {
+    "id": "1f447f24096411ebbdafac1f6bf848b6",
+    "question": "Which film was released first, It Chapter Two or Under Siege 2: Dark Territory?",
+    "gold": "Under Siege 2: Dark Territory",
+    "answer_aliases": [],
+    "supporting_facts": [
+      [
+        "It Chapter Two",
+        0
+      ],
+      [
+        "Under Siege 2: Dark Territory",
+        0
+      ]
+    ],
+    "evidences": [
+      [
+        "It Chapter Two",
+        "publication date",
+        "2019"
+      ],
+      [
+        "Under Siege 2: Dark Territory",
+        "publication date",
+        "1995"
+      ]
+    ],
+    "evidences_id": []
+  },
+  {
+    "id": "20c7b59608db11ebbd9cac1f6bf848b6",
+    "question": "Who is younger, Arthur Stannard Vernay or Janusz Bielański?",
+    "gold": "Janusz Bielański",
+    "answer_aliases": [],
+    "supporting_facts": [
+      [
+        "Arthur Stannard Vernay",
+        0
+      ],
+      [
+        "Janusz Bielański",
+        0
+      ]
+    ],
+    "evidences": [
+      [
+        "Arthur Stannard Vernay",
+        "date of birth",
+        "11 May 1877"
+      ],
+      [
+        "Janusz Bielański",
+        "date of birth",
+        "25 March 1939"
+      ]
+    ],
+    "evidences_id": []
+  },
+  {
+    "id": "2b1dde52088211ebbd6dac1f6bf848b6",
+    "question": "Which film has the director who is older than the other, Sally And Freedom or Shadows Of Silence? ",
+    "gold": "Sally And Freedom",
+    "answer_aliases": [],
+    "supporting_facts": [
+      [
+        "Sally and Freedom",
+        0
+      ],
+      [
+        "Shadows of Silence",
+        0
+      ],
+      [
+        "Gunnel Lindblom",
+        0
+      ],
+      [
+        "Pradeepan Raveendran",
+        0
+      ]
+    ],
+    "evidences": [
+      [
+        "Sally and Freedom",
+        "director",
+        "Gunnel Lindblom"
+      ],
+      [
+        "Shadows of Silence",
+        "director",
+        "Pradeepan Raveendran"
+      ],
+      [
+        "Gunnel Lindblom",
+        "date of birth",
+        "18 December 1931"
+      ],
+      [
+        "Pradeepan Raveendran",
+        "date of birth",
+        "July 12, 1981"
+      ]
+    ],
+    "evidences_id": []
+  },
+  {
+    "id": "2cf578340bde11eba7f7acde48001122",
+    "question": "When was Ferdinand Iii Of Limburg Stirum's father born?",
+    "gold": "1701",
+    "answer_aliases": [],
+    "supporting_facts": [
+      [
+        "Ferdinand III of Limburg Stirum",
+        0
+      ],
+      [
+        "Ferdinand I of Limburg Stirum",
+        0
+      ]
+    ],
+    "evidences": [
+      [
+        "Ferdinand III of Limburg Stirum",
+        "father",
+        "Ferdinand I of Limburg Stirum"
+      ],
+      [
+        "Ferdinand I of Limburg Stirum",
+        "date of birth",
+        "1701"
+      ]
+    ],
+    "evidences_id": [
+      [
+        "Q5443846",
+        "father",
+        "Q5443849"
+      ],
+      [
+        "Q5443849",
+        "date of birth",
+        "date_information"
+      ]
+    ]
+  },
+  {
+    "id": "415f6b82087c11ebbd69ac1f6bf848b6",
+    "question": "Which film has the director who died later, Slums Of Berlin or Cserepek?",
+    "gold": "Cserepek",
+    "answer_aliases": [],
+    "supporting_facts": [
+      [
+        "Slums of Berlin",
+        0
+      ],
+      [
+        "Cserepek",
+        0
+      ],
+      [
+        "Gerhard Lamprecht",
+        0
+      ],
+      [
+        "István Gaál",
+        0
+      ]
+    ],
+    "evidences": [
+      [
+        "Slums of Berlin",
+        "director",
+        "Gerhard Lamprecht"
+      ],
+      [
+        "Cserepek",
+        "director",
+        "István Gaál"
+      ],
+      [
+        "Gerhard Lamprecht",
+        "date of death",
+        "4 May 1974"
+      ],
+      [
+        "István Gaál",
+        "date of death",
+        "25 September 2007"
+      ]
+    ],
+    "evidences_id": []
+  },
+  {
+    "id": "5445632c0bde11eba7f7acde48001122",
+    "question": "Which country Henry Of Berg, Lord Of Windeck's father is from?",
+    "gold": "Germany",
+    "answer_aliases": [],
+    "supporting_facts": [
+      [
+        "Henry of Berg, Lord of Windeck",
+        2
+      ],
+      [
+        "Adolf VII of Berg",
+        0
+      ]
+    ],
+    "evidences": [
+      [
+        "Henry of Berg, Lord of Windeck",
+        "father",
+        "Adolf VII of Berg"
+      ],
+      [
+        "Adolf VII of Berg",
+        "country of citizenship",
+        "Germany"
+      ]
+    ],
+    "evidences_id": [
+      [
+        "Q4529099",
+        "father",
+        "Q95992"
+      ],
+      [
+        "Q95992",
+        "country of citizenship",
+        "Q183"
+      ]
+    ]
+  },
+  {
+    "id": "55023f2c090b11ebbdadac1f6bf848b6",
+    "question": "Which film was released more recently, I Mostri or Portrait Of A Bookstore As An Old Man?",
+    "gold": "Portrait Of A Bookstore As An Old Man",
+    "answer_aliases": [],
+    "supporting_facts": [
+      [
+        "I mostri",
+        0
+      ],
+      [
+        "Portrait of a Bookstore as an Old Man",
+        0
+      ]
+    ],
+    "evidences": [
+      [
+        "I mostri",
+        "publication date",
+        "1963"
+      ],
+      [
+        "Portrait of a Bookstore as an Old Man",
+        "publication date",
+        "2003"
+      ]
+    ],
+    "evidences_id": []
+  },
+  {
+    "id": "87e0dbe40bd911eba7f7acde48001122",
+    "question": "Which award the composer of song Cruisin' (Michael Nesmith Song) earned?",
+    "gold": "Grammy",
+    "answer_aliases": [],
+    "supporting_facts": [
+      [
+        "Cruisin' (Michael Nesmith song)",
+        0
+      ],
+      [
+        "Michael Nesmith",
+        6
+      ]
+    ],
+    "evidences": [
+      [
+        "Cruisin'",
+        "composer",
+        "Michael Nesmith"
+      ],
+      [
+        "Michael Nesmith",
+        "award received",
+        "Grammy"
+      ]
+    ],
+    "evidences_id": [
+      [
+        "Q5189988",
+        "composer",
+        "Q954997"
+      ],
+      [
+        "Q954997",
+        "award received",
+        "Q41254"
+      ]
+    ]
+  },
+  {
+    "id": "89882b2b087611ebbd67ac1f6bf848b6",
+    "question": "Which film has the director who is older, See Naples And Die or Season Of Strangers?",
+    "gold": "See Naples And Die",
+    "answer_aliases": [],
+    "supporting_facts": [
+      [
+        "See Naples and Die",
+        0
+      ],
+      [
+        "Season of Strangers",
+        0
+      ],
+      [
+        "Riccardo Freda",
+        1
+      ],
+      [
+        "Maya Deren",
+        0
+      ]
+    ],
+    "evidences": [
+      [
+        "See Naples and Die",
+        "director",
+        "Riccardo Freda"
+      ],
+      [
+        "Season of Strangers",
+        "director",
+        "Maya Deren"
+      ],
+      [
+        "Riccardo Freda",
+        "date of birth",
+        "24 February 1909"
+      ],
+      [
+        "Maya Deren",
+        "date of birth",
+        "April 29, 1917"
+      ]
+    ],
+    "evidences_id": []
+  },
+  {
+    "id": "9b03b5fc0bd911eba7f7acde48001122",
+    "question": "Which country the director of film Funny Games (2007 Film) is from?",
+    "gold": "Austrian",
+    "answer_aliases": [],
+    "supporting_facts": [
+      [
+        "Funny Games (2007 film)",
+        0
+      ],
+      [
+        "Michael Haneke",
+        0
+      ]
+    ],
+    "evidences": [
+      [
+        "Funny Games U.S.",
+        "director",
+        "Michael Haneke"
+      ],
+      [
+        "Michael Haneke",
+        "country of citizenship",
+        "Austrian"
+      ]
+    ],
+    "evidences_id": [
+      [
+        "Q951002",
+        "director",
+        "Q84199"
+      ],
+      [
+        "Q84199",
+        "country of citizenship",
+        "Q40"
+      ]
+    ]
+  },
+  {
+    "id": "9c67e2e60bda11eba7f7acde48001122",
+    "question": "What is the cause of death of performer of song How Do U Want It?",
+    "gold": "drive-by shooting",
+    "answer_aliases": [],
+    "supporting_facts": [
+      [
+        "How Do U Want It",
+        0
+      ],
+      [
+        "Tupac Shakur",
+        9
+      ]
+    ],
+    "evidences": [
+      [
+        "How Do U Want It",
+        "performer",
+        "2Pac"
+      ],
+      [
+        "Tupac Amaru Shakur",
+        "cause of death",
+        "drive-by shooting"
+      ]
+    ],
+    "evidences_id": [
+      [
+        "Q2473821",
+        "performer",
+        "Q6107"
+      ],
+      [
+        "Q6107",
+        "cause of death",
+        "Q1259359"
+      ]
+    ]
+  },
+  {
+    "id": "a0a66ec40bdd11eba7f7acde48001122",
+    "question": "Where does Charles Patin's father work at?",
+    "gold": "Collège de France",
+    "answer_aliases": [],
+    "supporting_facts": [
+      [
+        "Charles Patin",
+        1
+      ],
+      [
+        "Guy Patin",
+        2
+      ]
+    ],
+    "evidences": [
+      [
+        "Charles Patin",
+        "father",
+        "Guy Patin"
+      ],
+      [
+        "Guy Patin",
+        "employer",
+        "Collège de France"
+      ]
+    ],
+    "evidences_id": [
+      [
+        "Q503502",
+        "father",
+        "Q973855"
+      ],
+      [
+        "Q973855",
+        "employer",
+        "Q202660"
+      ]
+    ]
+  },
+  {
+    "id": "c3392729092211ebbdaeac1f6bf848b6",
+    "question": "Which film came out first, Everybody'S Famous! or Report From The Aleutians?",
+    "gold": "Report From The Aleutians",
+    "answer_aliases": [],
+    "supporting_facts": [
+      [
+        "Everybody's Famous!",
+        0
+      ],
+      [
+        "Report from the Aleutians",
+        0
+      ]
+    ],
+    "evidences": [
+      [
+        "Everybody's Famous!",
+        "publication date",
+        "2000"
+      ],
+      [
+        "Report from the Aleutians",
+        "publication date",
+        "1943"
+      ]
+    ],
+    "evidences_id": []
+  },
+  {
+    "id": "c46f575c0bd911eba7f7acde48001122",
+    "question": "Where was the place of death of Edsel Ford's father?",
+    "gold": "Dearborn",
+    "answer_aliases": [],
+    "supporting_facts": [
+      [
+        "Edsel Ford",
+        0
+      ],
+      [
+        "Henry Ford",
+        8
+      ]
+    ],
+    "evidences": [
+      [
+        "Edsel Bryant Ford",
+        "father",
+        "Henry Ford"
+      ],
+      [
+        "Henry Ford",
+        "place of death",
+        "Dearborn"
+      ]
+    ],
+    "evidences_id": [
+      [
+        "Q552844",
+        "father",
+        "Q8768"
+      ],
+      [
+        "Q8768",
+        "place of death",
+        "Q430464"
+      ]
+    ]
+  },
+  {
+    "id": "dab62b000baf11ebab90acde48001122",
+    "question": "Who is Duke Siegfried August In Bavaria's maternal grandmother?",
+    "gold": "Princess Clémentine of Orléans",
+    "answer_aliases": [],
+    "supporting_facts": [
+      [
+        "Duke Siegfried August in Bavaria",
+        3
+      ],
+      [
+        "Princess Amalie of Saxe-Coburg and Gotha",
+        1
+      ]
+    ],
+    "evidences": [
+      [
+        "Duke Siegfried in Bavaria",
+        "mother",
+        "Princess Amalie of Saxe-Coburg and Gotha"
+      ],
+      [
+        "Princess Amalie of Saxe-Coburg and Gotha",
+        "mother",
+        "Princess Clémentine of Orléans"
+      ]
+    ],
+    "evidences_id": [
+      [
+        "Q92153",
+        "mother",
+        "Q263617"
+      ],
+      [
+        "Q263617",
+        "mother",
+        "Q237129"
+      ]
+    ]
+  },
+  {
+    "id": "dc77c1fc0bdb11eba7f7acde48001122",
+    "question": "Which award the director of film Two Captains (Film) won?",
+    "gold": "People's Artist of the RSFSR",
+    "answer_aliases": [],
+    "supporting_facts": [
+      [
+        "Two Captains (film)",
+        0
+      ],
+      [
+        "Vladimir Vengerov",
+        2
+      ]
+    ],
+    "evidences": [
+      [
+        "Two Captains",
+        "director",
+        "Vladimir Vengerov"
+      ],
+      [
+        "Vladimir Vengerov",
+        "award received",
+        "People's Artist of the RSFSR"
+      ]
+    ],
+    "evidences_id": [
+      [
+        "Q4155584",
+        "director",
+        "Q251177"
+      ],
+      [
+        "Q251177",
+        "award received",
+        "Q47024"
+      ]
+    ]
+  },
+  {
+    "id": "e051bd000bdb11eba7f7acde48001122",
+    "question": "What is the place of birth of the director of film The Keeping Room?",
+    "gold": "British",
+    "answer_aliases": [],
+    "supporting_facts": [
+      [
+        "The Keeping Room",
+        0
+      ],
+      [
+        "Daniel Barber (director)",
+        0
+      ]
+    ],
+    "evidences": [
+      [
+        "The Keeping Room",
+        "director",
+        "Daniel Barber"
+      ],
+      [
+        "Daniel Barber",
+        "place of birth",
+        "British"
+      ]
+    ],
+    "evidences_id": [
+      [
+        "Q15612553",
+        "director",
+        "Q5216492"
+      ],
+      [
+        "Q5216492",
+        "place of birth",
+        "Q145"
+      ]
+    ]
+  },
+  {
+    "id": "ec2b4d29086411ebbd5eac1f6bf848b6",
+    "question": "Who lived longer, Elsa Herrmann or Pope Gregory Ii?",
+    "gold": "Elsa Herrmann",
+    "answer_aliases": [],
+    "supporting_facts": [
+      [
+        "Elsa Herrmann",
+        0
+      ],
+      [
+        "Pope Gregory II",
+        0
+      ]
+    ],
+    "evidences": [
+      [
+        "Elsa Herrmann",
+        "date of birth",
+        "January 9, 1893"
+      ],
+      [
+        "Elsa Herrmann",
+        "date of death",
+        "March 23, 1957"
+      ],
+      [
+        "Pope Gregory II",
+        "date of birth",
+        "669"
+      ],
+      [
+        "Pope Gregory II",
+        "date of death",
+        "11 February 731"
+      ]
+    ],
+    "evidences_id": []
+  },
+  {
+    "id": "ee6ab6980bdc11eba7f7acde48001122",
+    "question": "Which country the director of film Old Heidelberg (1959 Film) is from?",
+    "gold": "Austria",
+    "answer_aliases": [],
+    "supporting_facts": [
+      [
+        "Old Heidelberg (1959 film)",
+        0
+      ],
+      [
+        "Ernst Marischka",
+        0
+      ]
+    ],
+    "evidences": [
+      [
+        "Old Heidelberg",
+        "director",
+        "Ernst Marischka"
+      ],
+      [
+        "Ernst Marischka",
+        "country of citizenship",
+        "Austria"
+      ]
+    ],
+    "evidences_id": [
+      [
+        "Q433139",
+        "director",
+        "Q112121"
+      ],
+      [
+        "Q112121",
+        "country of citizenship",
+        "Q40"
+      ]
+    ]
+  }
+]

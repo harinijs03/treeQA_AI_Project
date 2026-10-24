@@ -1,56 +1,78 @@
 from openai import OpenAI
-from treeQA_Config import model_name, aliApiKey, deepseekApiKey
+from treeQA_Config import (
+    model_name,
+    aliApiKey,
+    deepseekApiKey,
+    groqApiKey,
+    groqModel,
+    openaiApiKey,
+)
+
+
+def get_groq_response(prompt, query):
+    client = OpenAI(
+        api_key=groqApiKey,
+        base_url="https://api.groq.com/openai/v1",
+        max_retries=5,
+    )
+    completion = client.chat.completions.create(
+        model=groqModel,
+        messages=[
+            {"role": "system", "content": prompt},
+            {"role": "user", "content": query},
+        ],
+        max_tokens=4096,
+        temperature=0.0,
+    )
+    if not completion.choices or completion.choices[0].message.content is None:
+        raise RuntimeError("Groq returned an empty chat completion.")
+    return completion.choices[0].message.content, completion.usage.total_tokens
 
 
 def get_DeepSeek_Response(prompt,query):
 
     client = OpenAI(api_key=deepseekApiKey, base_url="https://api.deepseek.com")
-    try:
-        response = client.chat.completions.create(
-            model="deepseek-chat",
-            messages=[
-                {"role": "system", "content": prompt},
-                {"role": "user", "content": query},
-            ],
-            stream=False,
-            max_tokens=2048,
-            temperature=0.0
-        )
+    response = client.chat.completions.create(
+        model="deepseek-chat",
+        messages=[
+            {"role": "system", "content": prompt},
+            {"role": "user", "content": query},
+        ],
+        stream=False,
+        max_tokens=2048,
+        temperature=0.0
+    )
 
-        # 计算当前查询的 token 数量
-        currentTokenCount = response.usage.total_tokens
-        return response.choices[0].message.content,currentTokenCount
-    except Exception as e:
-        print(e)
-        return "There is no answer for this question."
+    currentTokenCount = response.usage.total_tokens
+    return response.choices[0].message.content, currentTokenCount
 
 def get_deepseekV3(prompt, query):
     api_key = aliApiKey
     client = OpenAI(
-        # 若没有配置环境变量，请用百炼API Key将下行替换为：api_key="sk-xxx",
-        api_key=api_key,  # 如何获取API Key：https://help.aliyun.com/zh/model-studio/developer-reference/get-api-key
+
+        api_key=api_key,
         base_url="https://dashscope.aliyuncs.com/compatible-mode/v1"
     )
 
     completion = client.chat.completions.create(
-        model="deepseek-v3",  # 此处以 deepseek-r1 为例，可按需更换模型名称。
+        model="deepseek-v3",
         messages=[
             {'role': 'system', 'content': prompt},
             {'role': 'user', 'content': query}
         ],
         max_tokens=4096
     )
-    # 计算当前查询的 token 数量
+
     currentTokenCount = completion.usage.total_tokens
 
-    # 打印当前消耗和总消耗
+
     
     return completion.choices[0].message.content,currentTokenCount
 def get_qwen14b_ali(prompt, query):
     api_key = aliApiKey
     client = OpenAI(
-        # 若没有配置环境变量，请用百炼API Key将下行替换为：api_key="sk-xxx",
-        api_key=api_key,  # 如何获取API Key：https://help.aliyun.com/zh/model-studio/developer-reference/get-api-key
+
+        api_key=api_key,
         base_url="https://dashscope.aliyuncs.com/compatible-mode/v1"
     )
 
@@ -62,16 +84,16 @@ def get_qwen14b_ali(prompt, query):
         ],
         max_tokens=4096
     )
-    # 计算当前查询的 token 数量
+
     currentTokenCount = completion.usage.total_tokens
 
-    # 打印当前消耗和总消耗
+
     
     return completion.choices[0].message.content,currentTokenCount
 
 
 def get_gpt_response(prompt,query):
-    client = OpenAI()
+    client = OpenAI(api_key=openaiApiKey or None)
     completion = client.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[
@@ -83,14 +105,15 @@ def get_gpt_response(prompt,query):
         ],
         temperature=0.01
     )
-    # 计算当前查询的 token 数量
+
     currentTokenCount = completion.usage.total_tokens
 
-    # 打印当前消耗和总消耗
+
     
     return completion.choices[0].message.content,currentTokenCount
 
 model_functions = {
+    "groq": get_groq_response,
     "deepseekV3-chat": get_DeepSeek_Response,
     "qwen2.5-instruct-14b": get_qwen14b_ali,
     "deepseekV3_ali": get_deepseekV3,
